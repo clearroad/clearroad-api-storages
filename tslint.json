@@ -1,0 +1,55 @@
+{
+  "extends": "tslint:recommended",
+  "rules": {
+    "arrow-parens": false,
+    "ban-types": false,
+    "quotemark": [
+      true, "single", "avoid-escape", "avoid-template"
+    ],
+    "max-classes-per-file": [true, 2],
+    "max-line-length": false,
+    "member-access": false,
+    "member-ordering": false,
+    "no-angle-bracket-type-assertion": false,
+    "no-consecutive-blank-lines": true,
+    "no-console": true,
+    "no-duplicate-variable": true,
+    "no-empty": false,
+    "no-shadowed-variable": [
+      true,
+      {
+        "class": true,
+        "enum": true,
+        "function": true,
+        "interface": false,
+        "namespace": true,
+        "typeAlias": false,
+        "typeParameter": false
+      }
+    ],
+    "no-unused-expression": [true, "allow-fast-null-checks"],
+    "no-var-requires": false,
+    "object-literal-key-quotes": [true, "as-needed"],
+    "object-literal-sort-keys": false,
+    "one-line": false,
+    "ordered-imports": false,
+    "trailing-comma": [true, {"multiline": "never", "singleline": "never"}],
+    "triple-equals": [true, "allow-undefined-check"],
+    "variable-name": false,
+    "whitespace": [true,
+      "check-branch", "check-decl", "check-operator",
+      "check-separator", "check-typecast", "check-type",
+      "check-typecast", "check-module"
+    ]
+  },
+  "jsRules": {
+    "quotemark": [
+      true,
+      "single",
+      "avoid-escape"
+    ],
+    "object-literal-sort-keys": false,
+    "trailing-comma": false,
+    "no-trailing-whitespace": true
+  }
+}

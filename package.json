@@ -1,0 +1,39 @@
+{
+  "name": "clearroad-api-storages",
+  "version": "0.0.1",
+  "description": "ClearRoad API additional storages",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "release": "standard-version",
+    "postrelease": "git push origin master --follow-tags",
+    "commitmsg": "commitlint -e $GIT_PARAMS"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clearroad/clearroad-api-storages.git"
+  },
+  "keywords": [
+    "clearroad",
+    "api",
+    "storage"
+  ],
+  "author": "Guillaume Royer <guillaume.royer@clearroad.io>",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/clearroad/clearroad-api-storages/issues"
+  },
+  "homepage": "https://github.com/clearroad/clearroad-api-storages#readme",
+  "dependencies": {
+    "@clearroad/api": "git+https://github.com/clearroad/clearroad-api.git#develop",
+    "rsvp": "git+https://lab.nexedi.com/nexedi/rsvp.js.git"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^7.0.0",
+    "@commitlint/config-conventional": "^7.0.1",
+    "husky": "^0.14.3",
+    "rimraf": "^2.6.2",
+    "tslint": "^5.11.0",
+    "typescript": "^3.1.3"
+  }
+}
