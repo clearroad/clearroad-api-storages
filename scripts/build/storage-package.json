@@ -1,0 +1,25 @@
+{
+  "name": "@clearroad/api-storage-{{STORAGE}}",
+  "version": "{{VERSION}}",
+  "description": "ClearRoad API {{STORAGE}} Connector",
+  "module": "index.js",
+  "typings": "index.d.ts",
+  "author": "Guillaume Royer <guillaume.royer@clearroad.io>",
+  "license": "GPL-3.0-or-later",
+  "keywords": [
+    "clearroad",
+    "api",
+    "storage"
+  ],
+  "peerDependencies": {
+    "@clearroad/api": "*"
+  },
+  "bugs": {
+    "url": "https://github.com/clearroad/clearroad-api-storages/issues"
+  },
+  "homepage": "https://github.com/clearroad/clearroad-api-storages#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clearroad/clearroad-api-storages.git"
+  }
+}

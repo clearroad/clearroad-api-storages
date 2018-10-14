@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "stripInternal": true,
+    "outDir": "../../../dist/@clearroad/",
+    "rootDir": "../../../src/@clearroad/storages/"
+  },
+  "include": [
+    "./src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

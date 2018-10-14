@@ -4,7 +4,13 @@
   "description": "ClearRoad API additional storages",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rimraf dist .tmp",
+    "build": "npm run clean && npm run build:modules",
+    "build:modules": "node scripts/build/build.js",
+    "test": "rimraf coverage && nyc mocha",
+    "npmpub": "node scripts/build/publish.js",
+    "npmunpub": "node scripts/build/unpublish.js",
+    "shipit": "npm run build && npm run npmpub",
     "release": "standard-version",
     "postrelease": "git push origin master --follow-tags",
     "commitmsg": "commitlint -e $GIT_PARAMS"
@@ -25,14 +31,31 @@
   },
   "homepage": "https://github.com/clearroad/clearroad-api-storages#readme",
   "dependencies": {
-    "@clearroad/api": "git+https://github.com/clearroad/clearroad-api.git#develop",
-    "rsvp": "git+https://lab.nexedi.com/nexedi/rsvp.js.git"
+    "@clearroad/api": "1.2.0-rc.12"
   },
   "devDependencies": {
     "@commitlint/cli": "^7.0.0",
     "@commitlint/config-conventional": "^7.0.1",
+    "@types/chai": "^4.1.4",
+    "@types/jasmine": "~2.8.6",
+    "@types/jasminewd2": "~2.0.3",
+    "@types/mocha": "^5.2.5",
+    "@types/node": "~8.9.4",
+    "@types/sinon": "^5.0.2",
+    "chai": "^4.1.2",
+    "child-process-promise": "^2.2.1",
+    "copy": "^0.3.2",
+    "fs-extra": "2.0.0",
+    "fs-extra-promise": "0.4.1",
+    "git-branch": "^2.0.1",
     "husky": "^0.14.3",
+    "mocha": "^5.2.0",
+    "nyc": "^12.0.2",
+    "queue": "^4.5.0",
     "rimraf": "^2.6.2",
+    "sinon": "^6.1.5",
+    "source-map-support": "^0.5.9",
+    "ts-node": "^7.0.1",
     "tslint": "^5.11.0",
     "typescript": "^3.1.3"
   }
