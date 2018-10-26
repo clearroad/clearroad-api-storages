@@ -1,6 +1,6 @@
 {
   "name": "clearroad-api-storages",
-  "version": "0.0.1",
+  "version": "0.0.1-rc.18",
   "description": "ClearRoad API additional storages",
   "main": "index.js",
   "scripts": {
@@ -31,7 +31,9 @@
   },
   "homepage": "https://github.com/clearroad/clearroad-api-storages#readme",
   "dependencies": {
-    "@clearroad/api": "1.2.0-rc.12"
+    "@clearroad/api": "^2.0.0",
+    "@types/mongodb": "^3.1.12",
+    "mongodb": "^3.1.8"
   },
   "devDependencies": {
     "@commitlint/cli": "^7.0.0",
