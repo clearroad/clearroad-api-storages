@@ -109,6 +109,7 @@ const addStorageToQueue = storageName => {
           }
         });
       })
+      .then(callback)
       .catch(callback);
   }); // QUEUE.push end
 };
