@@ -33,8 +33,10 @@
   "dependencies": {
     "@clearroad/api": "^2.2.0",
     "@types/mongodb": "^3.1.12",
+    "@types/pg": "^7.4.11",
     "mariadb": "git+https://github.com/MariaDB/mariadb-connector-nodejs.git#develop",
-    "mongodb": "^3.1.8"
+    "mongodb": "^3.1.8",
+    "pg": "^7.6.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^7.0.0",
