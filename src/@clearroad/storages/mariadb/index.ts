@@ -1,7 +1,7 @@
 /* tslint:disable:no-console */
 import {
   jIO, getQueue, promiseToQueue,
-  IJioStorage, IQueue,
+  IJioStorage, IQueue, IClearRoadOptions,
   IJioQueryOptions
 } from '@clearroad/api';
 
@@ -372,6 +372,14 @@ export class MariaDBStorage implements IJioStorage {
       }) : [];
     });
   }
+}
+
+export interface IMariaDBOptions extends IClearRoadOptions {
+  localStorage: IMariaDBStorageOptions;
+  /**
+   * MariaDB does NOT support JSON queries
+   */
+  useQueryStorage: true;
 }
 
 const storageName = 'mariadb';

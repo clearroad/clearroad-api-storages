@@ -1,7 +1,7 @@
 const RSVP = require('rsvp');
 import {
   jIO, getQueue, promiseToQueue,
-  IJioStorage, IQueue, IOptions,
+  IJioStorage, IQueue, IClearRoadOptions,
   IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery
 } from '@clearroad/api';
 
@@ -102,10 +102,6 @@ export interface IMongoDBStorageOptions {
    * Collection name for attachments.
    */
   attachmentsCollectionName?: string;
-}
-
-export interface IMongoDBOptions extends IOptions {
-  localStorage: IMongoDBStorageOptions;
 }
 
 /**
@@ -325,6 +321,14 @@ export class MongoDBStorage implements IJioStorage {
         });
       });
   }
+}
+
+export interface IMongoDBOptions extends IClearRoadOptions {
+  localStorage: IMongoDBStorageOptions;
+  /**
+   * MongoDB supports JSON queries
+   */
+  useQueryStorage?: false;
 }
 
 const storageName = 'mongodb';

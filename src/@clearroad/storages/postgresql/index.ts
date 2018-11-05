@@ -1,7 +1,7 @@
 /* tslint:disable:no-console */
 import {
   jIO, getQueue, promiseToQueue,
-  IJioStorage, IQueue,
+  IJioStorage, IQueue, IClearRoadOptions,
   IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery
 } from '@clearroad/api';
 
@@ -392,6 +392,14 @@ export class PostgreSQLStorage implements IJioStorage {
       });
     });
   }
+}
+
+export interface IPostgreSQLOptions extends IClearRoadOptions {
+  localStorage: IPostgreSQLStorageOptions;
+  /**
+   * PostgreSQL supports JSON queries
+   */
+  useQueryStorage?: false;
 }
 
 const storageName = 'postgresql';
