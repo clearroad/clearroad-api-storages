@@ -1,9 +1,10 @@
 /* tslint:disable:no-console */
 import {
-  jIO, getQueue, promiseToQueue,
+  getQueue, promiseToQueue,
   IJioStorage, IQueue, IClearRoadOptions,
   IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery
 } from '@clearroad/api';
+import { jIO } from 'jio';
 
 import { Client, Pool, ClientConfig, PoolClient, QueryResult } from 'pg';
 

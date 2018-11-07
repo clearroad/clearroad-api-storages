@@ -16,7 +16,8 @@
   },
   "peerDependencies": {
     "@clearroad/api": "*",
-    "@types/pg": "^7.4.11"
+    "@types/pg": "^7.4.11",
+    "jio": "*"
   },
   "bugs": {
     "url": "https://github.com/clearroad/clearroad-api-storages/issues"

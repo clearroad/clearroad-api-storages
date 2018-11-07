@@ -15,7 +15,8 @@
     "mariadb": "git+https://github.com/MariaDB/mariadb-connector-nodejs.git#develop"
   },
   "peerDependencies": {
-    "@clearroad/api": "*"
+    "@clearroad/api": "*",
+    "jio": "*"
   },
   "bugs": {
     "url": "https://github.com/clearroad/clearroad-api-storages/issues"

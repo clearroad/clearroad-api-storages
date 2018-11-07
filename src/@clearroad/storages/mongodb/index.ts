@@ -1,9 +1,10 @@
 const RSVP = require('rsvp');
 import {
-  jIO, getQueue, promiseToQueue,
+  getQueue, promiseToQueue,
   IJioStorage, IQueue, IClearRoadOptions,
   IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery
 } from '@clearroad/api';
+import { jIO } from 'jio';
 
 import { MongoClient, Db, Collection, FindOneOptions, Cursor, MongoClientOptions } from 'mongodb';
 

@@ -1,9 +1,10 @@
 /* tslint:disable:no-console */
 import {
-  jIO, getQueue, promiseToQueue,
+  getQueue, promiseToQueue,
   IJioStorage, IQueue, IClearRoadOptions,
   IJioQueryOptions
 } from '@clearroad/api';
+import { jIO } from 'jio';
 
 const mariadb = require('mariadb');
 

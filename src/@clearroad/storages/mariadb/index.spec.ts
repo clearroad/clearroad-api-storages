@@ -3,7 +3,7 @@ import * as sinon from 'sinon';
 import 'mocha';
 
 import { IJioQueryOptions } from '@clearroad/api';
-const jioImport = require('@clearroad/api/dist/node/lib/jio.js');
+import * as jioImport from 'jio';
 const addStorageStub = sinon.stub(jioImport.jIO, 'addStorage');
 
 const mariadb = require('mariadb');
