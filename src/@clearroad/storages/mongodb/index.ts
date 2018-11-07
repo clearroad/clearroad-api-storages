@@ -1,8 +1,8 @@
-const RSVP = require('rsvp');
 import {
   getQueue, promiseToQueue,
   IJioStorage, IQueue, IClearRoadOptions,
-  IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery
+  IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery,
+  queryPortalType, queryGroupingReference
 } from '@clearroad/api';
 import { jIO } from 'jio';
 
@@ -146,10 +146,16 @@ export class MongoDBStorage implements IJioStorage {
         this._db = client.db(options.database);
         this._documentsCollection = this._db.collection(options.documentsCollectionName!);
         this._attachmentsCollection = this._db.collection(options.attachmentsCollectionName!);
-        return RSVP.all([
+        return Promise.all([
           this._documentsCollection.createIndex({
             [idKey]: 1
           }),
+          // indexes the most common fields when doing a query
+          this._documentsCollection.createIndex({
+            [`${valueKey}.${queryPortalType}`]: 1,
+            [`${valueKey}.${queryGroupingReference}`]: 1
+          }),
+          // no need to create index for [idKey] only since MongoDB handles it as well from compound index
           this._attachmentsCollection.createIndex({
             [idKey]: 1,
             name: 1
