@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.1.0-alpha.2"></a>
+# [0.1.0-alpha.2](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.1...v0.1.0-alpha.2) (2018-11-08)
+
+
+### Features
+
+* **mongodb:** add index on portal_type and grouping_reference ([17d5af3](https://github.com/clearroad/clearroad-api-storages/commit/17d5af3))
+* **postgresql:** add index on portal_type and grouping_reference ([fb54fb3](https://github.com/clearroad/clearroad-api-storages/commit/fb54fb3))
+
+
+
 <a name="0.1.0-alpha.1"></a>
 # [0.1.0-alpha.1](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.0...v0.1.0-alpha.1) (2018-11-07)
 
