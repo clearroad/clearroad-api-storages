@@ -2,7 +2,9 @@
 import {
   getQueue, promiseToQueue,
   IJioStorage, IQueue, IClearRoadOptions,
-  IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery
+  IJioQueryOptions, IJioSimpleQuery, IJioComplexQuery,
+  queryPortalType,
+  queryGroupingReference
 } from '@clearroad/api';
 import { jIO } from 'jio';
 
@@ -89,8 +91,8 @@ const createAttachmentsTable = (tableName: string) => {
 
 const indexName = (tableName: string, fields: string[]) => `${tableName}_index_${fields.join('_')}`;
 
-const indexTable = (tableName: string, fields: string[]) => {
-  return `CREATE INDEX ${indexName(tableName, fields)} ON ${tableName} (${fields.join(', ')})`;
+const indexTable = (tableName: string, fields: string[], name?: string) => {
+  return `CREATE INDEX ${name || indexName(tableName, fields)} ON ${tableName} (${fields.join(', ')})`;
 };
 
 /**
@@ -213,6 +215,11 @@ export class PostgreSQLStorage implements IJioStorage {
             // create indexes on id keys
             client.query(indexTable(this._documentsTable, [idKey])).catch(() => {}),
             client.query(indexTable(this._attachmentsTable, [idKey])).catch(() => {}),
+            // indexes the most common fields when doing a query
+            client.query(indexTable(this._documentsTable, [
+              `${valueKey} ->> ${queryPortalType}`,
+              `${valueKey} ->> ${queryGroupingReference}`
+            ], 'documents_index_queries')).catch(() => {}),
             // create index on id key + name for attachments
             client.query(indexTable(this._attachmentsTable, [idKey, 'name'])).catch(() => {})
           ]);
