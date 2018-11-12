@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.1.0-alpha.6"></a>
+# [0.1.0-alpha.6](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.2...v0.1.0-alpha.6) (2018-11-12)
+
+
+### Bug Fixes
+
+* set api as dependency ([dcadfec](https://github.com/clearroad/clearroad-api-storages/commit/dcadfec))
+
+
+
+<a name="0.1.0-alpha.5"></a>
+# [0.1.0-alpha.5](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.2...v0.1.0-alpha.5) (2018-11-12)
+
+
+### Bug Fixes
+
+* set api as dependency ([21ffb8b](https://github.com/clearroad/clearroad-api-storages/commit/21ffb8b))
+
+
+
 <a name="0.1.0-alpha.2"></a>
 # [0.1.0-alpha.2](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.1...v0.1.0-alpha.2) (2018-11-08)
 
