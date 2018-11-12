@@ -12,12 +12,12 @@
     "storage"
   ],
   "dependencies": {
+    "@clearroad/api": ">= 2.4.1",
+    "jio": "*",
     "mongodb": "^3.1.8"
   },
   "peerDependencies": {
-    "@clearroad/api": "*",
-    "@types/mongodb": "^3.1.12",
-    "jio": "*"
+    "@types/mongodb": "^3.1.12"
   },
   "bugs": {
     "url": "https://github.com/clearroad/clearroad-api-storages/issues"

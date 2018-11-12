@@ -12,11 +12,9 @@
     "storage"
   ],
   "dependencies": {
+    "@clearroad/api": ">= 2.4.1",
+    "jio": "*",
     "mariadb": "git+https://github.com/MariaDB/mariadb-connector-nodejs.git#develop"
-  },
-  "peerDependencies": {
-    "@clearroad/api": "*",
-    "jio": "*"
   },
   "bugs": {
     "url": "https://github.com/clearroad/clearroad-api-storages/issues"

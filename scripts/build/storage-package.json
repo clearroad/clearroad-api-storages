@@ -11,8 +11,8 @@
     "api",
     "storage"
   ],
-  "peerDependencies": {
-    "@clearroad/api": "*",
+  "dependencies": {
+    "@clearroad/api": ">= 2.4.1",
     "jio": "*"
   },
   "bugs": {
