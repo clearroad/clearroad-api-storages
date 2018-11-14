@@ -6,13 +6,13 @@ import { IJioQueryOptions } from '@clearroad/api';
 import * as jioImport from 'jio';
 const addStorageStub = sinon.stub(jioImport.jIO, 'addStorage');
 
-const mariadb = require('mariadb');
+import * as mssql from 'mssql';
 
 import * as specs from './index';
 import storageName, {
-  MariaDBStorage, IMariaDBStorageOptions,
+  MSSQLStorage, IMSSQLStorageOptions,
   defaultDocumentsCollection, defaultAttachmentsCollection,
-  IConnection, IPool, safeTransaction, safeQuery,
+  safeTransaction,
   resultAsJson
 } from './index';
 
@@ -26,14 +26,27 @@ class FakeQueue {
   }
 }
 
-class FakePool implements IPool {
-  getConnection() {
-    return Promise.resolve(new FakeConnection());
+class FakePool {
+  request() {
+    return new FakeRequest();
+  }
+  connect() {
+    return Promise.resolve();
+  }
+  close() {
+    return Promise.resolve();
   }
 }
 
-class FakeConnection implements IConnection {
-  beginTransaction() {
+class FakeRequest {
+  query() {
+    return Promise.resolve();
+  }
+  input() {}
+}
+
+class FakeTransaction extends FakeRequest {
+  begin() {
     return Promise.resolve();
   }
   commit() {
@@ -42,33 +55,34 @@ class FakeConnection implements IConnection {
   rollback() {
     return Promise.resolve();
   }
-  end() {
+  query() {
     return Promise.resolve();
-  }
-  query<T>() {
-    return Promise.resolve({} as T);
   }
 }
 
-const options: IMariaDBStorageOptions = {
+const options: IMSSQLStorageOptions = {
   database: 'database',
-  type: 'mariadb',
-  host: 'url'
+  type: 'mssql',
+  server: 'url'
 };
 
-const connectionStub = (storage: MariaDBStorage) => {
-  const queue = new FakeQueue();
-  const connection = new FakeConnection();
-  queue.push(() => connection);
-  stubs.push(sinon.stub((storage as any), 'connection').returns(queue));
-  return connection;
+const requestStub = (storage: MSSQLStorage, request: FakeRequest) => {
+  const poolQueue = new FakeQueue();
+  const pool = new FakePool();
+  stubs.push(sinon.stub(pool, 'request').returns(request));
+  poolQueue.push(() => pool);
+  stubs.push(sinon.stub((storage as any), 'pool').returns(poolQueue));
 };
 
 describe(storageName, () => {
+  let transaction: FakeTransaction;
+
   beforeEach(() => {
     stubs = [];
-    stubs.push(sinon.stub(mariadb, 'createPool').returns(new FakePool()));
-    stubs.push(sinon.stub(mariadb, 'createConnection').returns(new FakeConnection()));
+    stubs.push(sinon.stub(mssql, 'ConnectionPool').returns(new FakePool()));
+    transaction = new FakeTransaction();
+    stubs.push(sinon.stub(mssql, 'Transaction').returns(transaction));
+    stubs.push(sinon.stub(mssql, 'Request').returns(new FakeRequest()));
   });
 
   afterEach(() => {
@@ -76,7 +90,7 @@ describe(storageName, () => {
   });
 
   it('should add the storage', () => {
-    expect(addStorageStub.calledWith(storageName, MariaDBStorage)).to.equal(true);
+    expect(addStorageStub.calledWith(storageName, MSSQLStorage)).to.equal(true);
   });
 
   describe('resultAsJson', () => {
@@ -94,82 +108,58 @@ describe(storageName, () => {
   });
 
   describe('safeTransaction', () => {
-    let connection: IConnection;
     let rollbackStub: sinon.SinonStub;
 
     beforeEach(() => {
-      connection = new FakeConnection();
-      rollbackStub = sinon.stub(connection, 'rollback').returns(Promise.resolve());
+      rollbackStub = sinon.stub(transaction, 'rollback').returns(Promise.resolve());
       stubs.push(rollbackStub);
     });
 
     describe('success', () => {
       it('should not rollback', async () => {
-        await safeTransaction(connection, () => Promise.resolve());
+        await safeTransaction(new FakePool() as any, () => Promise.resolve());
         expect(rollbackStub.called).to.equal(false);
       });
     });
 
     describe('failure', () => {
       it('should rollback', async () => {
-        await safeTransaction(connection, () => Promise.reject());
+        await safeTransaction(new FakePool() as any, () => Promise.reject());
         expect(rollbackStub.called).to.equal(true);
       });
     });
   });
 
-  describe('safeQuery', () => {
-    let connection: IConnection;
+  describe('MSSQLStorage', () => {
+    let request: FakeRequest;
 
     beforeEach(() => {
-      connection = new FakeConnection();
-    });
-
-    describe('success', () => {
-      it('should return the results', async () => {
-        const results = [{
-          id: 1
-        }];
-        const res = await safeQuery(connection, () => Promise.resolve(results));
-        expect(res).to.deep.equal(results);
-      });
-    });
-
-    describe('failure', () => {
-      it('should return the null', async () => {
-        const res = await safeQuery(connection, () => Promise.reject());
-        expect(res).to.equal(null);
-      });
-    });
-  });
-
-  describe('MariaDBStorage', () => {
-    beforeEach(() => {
-      stubs.push(sinon.stub(specs, 'safeTransaction').callsFake((_conn, transactions) => transactions()));
-      stubs.push(sinon.stub(specs, 'safeQuery').callsFake((_conn, query) => query()));
+      request = new FakeRequest();
+      (request as any).id = 'from safe tr';
+      stubs.push(sinon.stub(specs, 'safeTransaction').callsFake((_pool, transactions) => transactions(request)));
     });
 
     describe('constructor', () => {
       const fakeOptions: any = {};
 
       beforeEach(() => {
-        stubs.push(sinon.stub(MariaDBStorage.prototype as any, 'initDb'));
+        stubs.push(sinon.stub(MSSQLStorage.prototype as any, 'initDb'));
       });
 
-      describe('without a "host"', () => {
+      describe('without a "server"', () => {
         it('should throw an error', () => {
-          expect(() => new MariaDBStorage(fakeOptions)).to.throw('"host" must be a non-empty string');
+          expect(() => new MSSQLStorage(fakeOptions)).to.throw('"server" must be a non-empty string');
         });
       });
 
-      describe('with a "host', () => {
+      describe('with a "server', () => {
         beforeEach(() => {
-          fakeOptions.host = 'mysql://';
+          fakeOptions.server = 'mssql://';
         });
 
         describe('without a "database"', () => {
           it('should throw an error', () => {
-            expect(() => new MariaDBStorage(fakeOptions)).to.throw('"database" must be a non-empty string');
+            expect(() => new MSSQLStorage(fakeOptions)).to.throw('"database" must be a non-empty string');
           });
         });
 
@@ -179,8 +169,8 @@ describe(storageName, () => {
           });
 
           it('should call init', () => {
-            new MariaDBStorage(fakeOptions);
-            expect((MariaDBStorage.prototype as any).initDb.called).to.equal(true);
+            new MSSQLStorage(fakeOptions);
+            expect((MSSQLStorage.prototype as any).initDb.called).to.equal(true);
           });
         });
       });
@@ -188,48 +178,47 @@ describe(storageName, () => {
 
     describe('.initDb', () => {
       it('should create a pool', async () => {
-        const storage: any = new MariaDBStorage(options);
+        const storage: any = new MSSQLStorage(options);
         await storage._dbPromise;
         expect(storage._pool instanceof FakePool).to.equal(true);
       });
     });
 
     describe('.get', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       let stub: sinon.SinonStub;
 
       beforeEach(() => {
         stubs.push(sinon.stub(specs, 'resultAsJson').callsFake(val => val));
 
-        storage = new MariaDBStorage(options);
-        const connection = connectionStub(storage);
+        storage = new MSSQLStorage(options);
+        requestStub(storage, request);
 
-        stub = sinon.stub(connection, 'query').returns([{}]);
+        stub = sinon.stub(request, 'query').returns({recordset: [{}]});
         stubs.push(stub);
       });
 
       it('should find by id', () => {
         storage.get(id);
-        expect(stub.calledWith({
-          namedPlaceholders: true,
-          sql: `SELECT * FROM ${defaultDocumentsCollection} WHERE _id=:id`
-        }, {id})).to.equal(true);
+        expect(stub.calledWith(
+          `SELECT * FROM ${defaultDocumentsCollection} WHERE _id=@id`
+        )).to.equal(true);
       });
     });
 
     describe('.put', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       const data = {test: 1};
       let stub: sinon.SinonStub;
 
       beforeEach(async () => {
-        storage = new MariaDBStorage(options);
+        storage = new MSSQLStorage(options);
         await (storage as any)._dbPromise;
-        const connection = connectionStub(storage);
+        requestStub(storage, request);
 
-        stub = sinon.stub(connection, 'query').returns([]);
+        stub = sinon.stub(request, 'query').returns({recordset: []});
         stubs.push(stub);
       });
 
@@ -242,10 +231,9 @@ describe(storageName, () => {
 
         it('should update data', () => {
           storage.put(id, data);
-          expect(stub.calledWith({
-            namedPlaceholders: true,
-            sql: `UPDATE ${defaultDocumentsCollection} SET value=:data WHERE _id=:id`
-          }, {id, data: JSON.stringify(data)})).to.equal(true);
+          expect(stub.calledWith(
+            `UPDATE ${defaultDocumentsCollection} SET value=@data WHERE _id=@id`
+          )).to.equal(true);
         });
       });
 
@@ -257,37 +245,35 @@ describe(storageName, () => {
         it('should insert data', () => {
           storage.put(id, data);
           expect(stub.calledWith(
-            `INSERT INTO ${defaultDocumentsCollection} VALUES (NULL, ?, ?)`,
-            [id, JSON.stringify(data)]
+            `INSERT INTO ${defaultDocumentsCollection} (_id, value) VALUES (@id, @data)`
           )).to.equal(true);
         });
       });
     });
 
     describe('.remove', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       let stub: sinon.SinonStub;
 
       beforeEach(() => {
-        storage = new MariaDBStorage(options);
-        const connection = connectionStub(storage);
+        storage = new MSSQLStorage(options);
+        requestStub(storage, request);
 
-        stub = sinon.stub(connection, 'query').returns(new FakeQueue());
+        stub = sinon.stub(request, 'query').returns(new FakeQueue());
         stubs.push(stub);
       });
 
       it('should remove by id', () => {
         storage.remove(id);
-        expect(stub.calledWith({
-          namedPlaceholders: true,
-          sql: `DELETE FROM ${defaultDocumentsCollection} WHERE _id=:id`
-        }, {id})).to.equal(true);
+        expect(stub.calledWith(
+          `DELETE FROM ${defaultDocumentsCollection} WHERE _id=@id`
+        )).to.equal(true);
       });
     });
 
     describe('.getAttachment', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       const name = 'name';
       const attachment = 'attachment';
@@ -297,13 +283,13 @@ describe(storageName, () => {
         stubs.push(sinon.stub(specs, 'resultAsJson').callsFake(val => val));
         stubs.push(sinon.stub(jioImport.jIO.util, 'dataURItoBlob').returns(attachment));
 
-        storage = new MariaDBStorage(options);
+        storage = new MSSQLStorage(options);
+        requestStub(storage, request);
       });
 
       describe('attachment found', () => {
         beforeEach(() => {
-          const connection = connectionStub(storage);
-          stub = sinon.stub(connection, 'query').returns([{}]);
+          stub = sinon.stub(request, 'query').returns({recordset: [{}]});
           stubs.push(stub);
         });
 
@@ -315,8 +301,7 @@ describe(storageName, () => {
 
       describe('attachment not found', () => {
         beforeEach(() => {
-          const connection = connectionStub(storage);
-          stub = sinon.stub(connection, 'query').returns([]);
+          stub = sinon.stub(request, 'query').returns([]);
           stubs.push(stub);
         });
 
@@ -327,7 +312,7 @@ describe(storageName, () => {
     });
 
     describe('.putAttachment', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       const name = 'name';
       const data: any = {
@@ -336,11 +321,11 @@ describe(storageName, () => {
       let stub: sinon.SinonStub;
 
       beforeEach(async () => {
-        storage = new MariaDBStorage(options);
+        storage = new MSSQLStorage(options);
         await (storage as any)._dbPromise;
-        const connection = connectionStub(storage);
+        requestStub(storage, request);
 
-        stub = sinon.stub(connection, 'query').returns([]);
+        stub = sinon.stub(request, 'query').returns([]);
         stubs.push(stub);
         stubs.push(sinon.stub(jioImport.jIO.util, 'readBlobAsDataURL').returns(data));
       });
@@ -348,47 +333,45 @@ describe(storageName, () => {
       it('should insert data', async () => {
         await storage.putAttachment(id, name, data);
         expect(stub.calledWith(
-          `INSERT INTO ${defaultAttachmentsCollection} VALUES (NULL, ?, ?, ?)`,
-          [id, name, data.target.result]
+          `INSERT INTO ${defaultAttachmentsCollection} (_id, name, value) VALUES (@id, @name, @data)`
         )).to.equal(true);
       });
     });
 
     describe('.removeAttachment', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       const name = 'name';
       let stub: sinon.SinonStub;
 
       beforeEach(() => {
-        storage = new MariaDBStorage(options);
-        const connection = connectionStub(storage);
+        storage = new MSSQLStorage(options);
+        requestStub(storage, request);
 
-        stub = sinon.stub(connection, 'query').returns([]);
+        stub = sinon.stub(request, 'query').returns([]);
         stubs.push(stub);
       });
 
       it('should remove by id', () => {
         storage.removeAttachment(id, name);
-        expect(stub.calledWith({
-          namedPlaceholders: true,
-          sql: `DELETE FROM ${defaultAttachmentsCollection} WHERE _id=:id AND name=:name`
-        }, {id, name})).to.equal(true);
+        expect(stub.calledWith(
+          `DELETE FROM ${defaultAttachmentsCollection} WHERE _id=@id AND name=@name`
+        )).to.equal(true);
       });
     });
 
     describe('.allAttachments', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       const id = 'id';
       const attachments = [{
         name: 'attachment 1'
       }];
 
       beforeEach(() => {
-        storage = new MariaDBStorage(options);
-        const connection = connectionStub(storage);
+        storage = new MSSQLStorage(options);
+        requestStub(storage, request);
 
-        stubs.push(sinon.stub(connection, 'query').returns(attachments));
+        stubs.push(sinon.stub(request, 'query').returns({recordset: attachments}));
       });
 
       it('should return a list of attachments', () => {
@@ -401,18 +384,18 @@ describe(storageName, () => {
 
     describe('.hasCapacity', () => {
       it('should support list', () => {
-        const storage = new MariaDBStorage(options);
+        const storage = new MSSQLStorage(options);
         expect(storage.hasCapacity('list')).to.equal(true);
       });
 
       it('should not support queries', () => {
-        const storage = new MariaDBStorage(options);
+        const storage = new MSSQLStorage(options);
         expect(storage.hasCapacity('query')).to.equal(false);
       });
     });
 
     describe('.buildQuery', () => {
-      let storage: MariaDBStorage;
+      let storage: MSSQLStorage;
       let params: IJioQueryOptions;
       const results = [{
         _id: 1,
@@ -422,13 +405,13 @@ describe(storageName, () => {
       let stub: sinon.SinonStub;
 
       beforeEach(() => {
-        stubs.push(sinon.stub(MariaDBStorage.prototype as any, 'initDb'));
+        stubs.push(sinon.stub(MSSQLStorage.prototype as any, 'initDb'));
         stubs.push(sinon.stub(specs, 'resultAsJson').callsFake(val => val));
 
-        storage = new MariaDBStorage(options);
-        const connection = connectionStub(storage);
+        storage = new MSSQLStorage(options);
+        requestStub(storage, request);
 
-        stub = sinon.stub(connection, 'query').returns(results);
+        stub = sinon.stub(request, 'query').returns({recordset: results});
         stubs.push(stub);
 
         params = {
@@ -443,9 +426,9 @@ describe(storageName, () => {
 
         it('should set limit', () => {
           storage.buildQuery(params);
-          expect(stub.calledWith({
-            sql: `SELECT * FROM ${defaultDocumentsCollection} LIMIT ${params.limit![1]} OFFSET ${params.limit![0]}`
-          })).to.equal(true);
+          expect(stub.calledWith(
+            `SELECT * FROM ${defaultDocumentsCollection} OFFSET ${params.limit![0]} ROWS FETCH NEXT ${params.limit![1]} ROWS ONLY`
+          )).to.equal(true);
         });
       });
 

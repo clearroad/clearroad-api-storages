@@ -1,6 +1,6 @@
 # ClearRoad API Storage PostgreSQL
 
-Note: 5 databases will be created to store the data, all prefixed with the `database` value see below.
+Note: 5 databases will be created to store the data, all prefixed with the `database` value (see below).
 Make sure you use credentials that have the rights to create databases.
 
 ## Install

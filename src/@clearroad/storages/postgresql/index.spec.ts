@@ -193,7 +193,7 @@ describe(storageName, () => {
 
       describe('with a "host', () => {
         beforeEach(() => {
-          fakeOptions.host = 'mongodb://';
+          fakeOptions.host = 'postgres://';
         });
 
         describe('without a "database"', () => {
