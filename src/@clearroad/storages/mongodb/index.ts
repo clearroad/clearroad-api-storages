@@ -307,6 +307,12 @@ export class MongoDBStorage implements IJioStorage {
       findOptions.limit = options.limit[1] || 100;
     }
     const selectList = (options.select_list || []).slice();
+    if (selectList.length) {
+      findOptions.projection = selectList.reduce((prev, cur) => {
+        prev[`${valueKey}.${cur}`] = 1;
+        return prev;
+      }, {[idKey]: 1});
+    }
 
     return this.db()
       .push(() => {
