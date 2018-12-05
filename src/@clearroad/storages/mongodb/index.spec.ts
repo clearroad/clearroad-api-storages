@@ -9,13 +9,19 @@ const addStorageStub = sinon.stub(jioImport.jIO, 'addStorage');
 import * as mongodb from 'mongodb';
 
 import * as specs from './index';
-import storageName, { MongoDBStorage, parseQuery, IMongoDBStorageOptions, idKey, valueKey } from './index';
+import storageName, {
+  MongoDBStorage, parseQuery, IMongoDBStorageOptions,
+  idKey, valueKey, updatedAtKey, createdAtKey
+} from './index';
 
 let stubs: sinon.SinonStub[] = [];
 
 class FakeQueue {
   private result;
   push(callback) {
+    if (this.result instanceof FakeQueue) {
+      return this.result.push(callback);
+    }
     this.result = callback(this.result);
     return this;
   }
@@ -62,6 +68,12 @@ describe(storageName, () => {
     expect(addStorageStub.calledWith(storageName, MongoDBStorage)).to.equal(true);
   });
 
+  describe('now', () => {
+    it('should return a date', () => {
+      expect(specs.now()).to.be.instanceOf(Date);
+    });
+  });
+
   describe('parseQuery', () => {
     it('should parse complex queries', () => {
       const date = new Date();
@@ -99,6 +111,12 @@ describe(storageName, () => {
   });
 
   describe('MongoDBStorage', () => {
+    const now = new Date();
+
+    beforeEach(() => {
+      stubs.push(sinon.stub(specs, 'now').returns(now));
+    });
+
     describe('constructor', () => {
       const fakeOptions: any = {};
 
@@ -132,6 +150,28 @@ describe(storageName, () => {
             new MongoDBStorage(fakeOptions);
             expect((MongoDBStorage.prototype as any).initDb.called).to.equal(true);
           });
+
+          describe('with "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = true;
+            });
+
+            it('should enable timestamps', () => {
+              const storage = new MongoDBStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(true);
+            });
+          });
+
+          describe('without "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = false;
+            });
+
+            it('should disable timestamps', () => {
+              const storage = new MongoDBStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(false);
+            });
+          });
         });
       });
     });
@@ -153,20 +193,49 @@ describe(storageName, () => {
     describe('.get', () => {
       let storage: MongoDBStorage;
       const id = 'id';
-      let stub: sinon.SinonStub;
 
       beforeEach(() => {
         storage = new MongoDBStorage(options);
         stubs.push(sinon.stub((storage as any), 'db').returns(new FakeQueue()));
 
         (storage as any)._documentsCollection = new FakeCollection();
-        stub = sinon.stub((storage as any)._documentsCollection, 'findOne').returns(new FakeQueue());
-        stubs.push(stub);
       });
 
       it('should find by id', () => {
+        const stub = sinon.stub((storage as any)._documentsCollection, 'findOne').returns(new FakeQueue());
+        stubs.push(stub);
         storage.get(id);
         expect(stub.calledWith({[idKey]: id})).to.equal(true);
+      });
+
+      describe('document found', () => {
+        const document = {
+          [valueKey]: 1
+        };
+
+        beforeEach(() => {
+          const queue = new FakeQueue();
+          queue.push(() => document);
+          stubs.push(sinon.stub((storage as any)._documentsCollection, 'findOne').returns(queue));
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.deep.equal(document[valueKey]);
+        });
+      });
+
+      describe('document not found', () => {
+        beforeEach(() => {
+          const queue = new FakeQueue();
+          queue.push(() => null);
+          stubs.push(sinon.stub((storage as any)._documentsCollection, 'findOne').returns(queue));
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.equal(null);
+        });
       });
     });
 
@@ -194,13 +263,34 @@ describe(storageName, () => {
           stubs.push(sinon.stub(storage, 'get').returns({}));
         });
 
-        it('should update data', () => {
-          storage.put(id, data);
-          expect(updateStub.calledWith({
-            [idKey]: id
-          }, {
-            $set: {[valueKey]: data}
-          })).to.equal(true);
+        describe('with timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = true;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(updateStub.calledWith({
+              [idKey]: id
+            }, {
+              $set: {[valueKey]: data, [updatedAtKey]: now}
+            })).to.equal(true);
+          });
+        });
+
+        describe('without timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = false;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(updateStub.calledWith({
+              [idKey]: id
+            }, {
+              $set: {[valueKey]: data}
+            })).to.equal(true);
+          });
         });
       });
 
@@ -209,12 +299,33 @@ describe(storageName, () => {
           stubs.push(sinon.stub(storage, 'get').returns(null));
         });
 
-        it('should insert data', () => {
-          storage.put(id, data);
-          expect(insertStub.calledWith({
-            [idKey]: id,
-            [valueKey]: data
-          })).to.equal(true);
+        describe('with timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = true;
+          });
+
+          it('should insert data', () => {
+            storage.put(id, data);
+            expect(insertStub.calledWith({
+              [idKey]: id,
+              [valueKey]: data,
+              [createdAtKey]: now
+            })).to.equal(true);
+          });
+        });
+
+        describe('without timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = false;
+          });
+
+          it('should insert data', () => {
+            storage.put(id, data);
+            expect(insertStub.calledWith({
+              [idKey]: id,
+              [valueKey]: data
+            })).to.equal(true);
+          });
         });
       });
     });
@@ -295,9 +406,25 @@ describe(storageName, () => {
         }));
       });
 
-      it('should insert data', () => {
+      it('should insert data with timestamps', () => {
+        (storage as any)._timestamps = true;
         storage.putAttachment(id, '', data);
-        expect(stub.called).to.equal(true);
+        expect(stub.calledWith({
+          [idKey]: id,
+          name: '',
+          [valueKey]: {},
+          [createdAtKey]: now
+        })).to.equal(true);
+      });
+
+      it('should insert data without timestamps', () => {
+        (storage as any)._timestamps = false;
+        storage.putAttachment(id, '', data);
+        expect(stub.calledWith({
+          [idKey]: id,
+          name: '',
+          [valueKey]: {}
+        })).to.equal(true);
       });
     });
 

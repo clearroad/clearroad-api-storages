@@ -13,7 +13,7 @@ import storageName, {
   PostgreSQLStorage, IPostgreSQLStorageOptions,
   defaultDocumentsCollection, defaultAttachmentsCollection,
   parseQuery, safeTransaction, safeQuery,
-  resultAsJson
+  resultAsJson, valueKey
 } from './index';
 
 let stubs: sinon.SinonStub[] = [];
@@ -21,6 +21,9 @@ let stubs: sinon.SinonStub[] = [];
 class FakeQueue {
   private result;
   push(callback) {
+    if (this.result instanceof FakeQueue) {
+      return this.result.push(callback);
+    }
     this.result = callback(this.result);
     return this;
   }
@@ -211,6 +214,28 @@ describe(storageName, () => {
             new PostgreSQLStorage(fakeOptions);
             expect((PostgreSQLStorage.prototype as any).initDb.called).to.equal(true);
           });
+
+          describe('with "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = true;
+            });
+
+            it('should enable timestamps', () => {
+              const storage = new PostgreSQLStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(true);
+            });
+          });
+
+          describe('without "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = false;
+            });
+
+            it('should disable timestamps', () => {
+              const storage = new PostgreSQLStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(false);
+            });
+          });
         });
       });
     });
@@ -245,6 +270,32 @@ describe(storageName, () => {
           [id]
         )).to.equal(true);
       });
+
+      describe('document found', () => {
+        const document = {
+          [valueKey]: 1
+        };
+
+        beforeEach(() => {
+          stub.returns({rows: [document]});
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.deep.equal(document);
+        });
+      });
+
+      describe('document not found', () => {
+        beforeEach(() => {
+          stub.returns({rows: []});
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.equal(null);
+        });
+      });
     });
 
     describe('.put', () => {
@@ -269,12 +320,32 @@ describe(storageName, () => {
           stubs.push(sinon.stub(storage, 'get').returns(queue));
         });
 
-        it('should update data', () => {
-          storage.put(id, data);
-          expect(stub.calledWith(
-            `UPDATE ${defaultDocumentsCollection} SET value=$2 WHERE _id=$1`,
-            [id, JSON.stringify(data)]
-          )).to.equal(true);
+        describe('with timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = true;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith(
+              `UPDATE ${defaultDocumentsCollection} SET value=$2, updatedAt=Now() WHERE _id=$1`,
+              [id, JSON.stringify(data)]
+            )).to.equal(true);
+          });
+        });
+
+        describe('without timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = false;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith(
+              `UPDATE ${defaultDocumentsCollection} SET value=$2 WHERE _id=$1`,
+              [id, JSON.stringify(data)]
+            )).to.equal(true);
+          });
         });
       });
 

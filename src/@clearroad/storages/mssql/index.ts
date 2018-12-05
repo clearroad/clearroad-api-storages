@@ -11,6 +11,22 @@ import { ConnectionPool, config, Request, Transaction, VarChar } from 'mssql';
 /**
  * @internal
  */
+export const idKey = '_id';
+/**
+ * @internal
+ */
+export const valueKey = 'value';
+/**
+ * @internal
+ */
+export const createdAtKey = 'createdAt';
+/**
+ * @internal
+ */
+export const updatedAtKey = 'updatedAt';
+/**
+ * @internal
+ */
 export const defaultDocumentsCollection = 'documents';
 /**
  * @internal
@@ -27,27 +43,29 @@ export interface IMSSQLStorageOptions extends config {
    * Table name for attachments.
    */
   attachmentsTableName?: string;
+  /**
+   * Add created/updatedAt timestamps for every document.
+   * Enabled by default for both
+   */
+  timestamps?: boolean;
 }
-
-const idKey = '_id';
-const valueKey = 'value';
 
 const createDatabase = (databaseName: string) => `CREATE DATABASE "${databaseName}"`;
 
-const createDocumentsTable = (tableName: string) => {
+const createDocumentsTable = (tableName: string, timestamps: boolean) => {
   return `CREATE TABLE "${tableName}" (
     id INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
     ${idKey} VARCHAR(255) NOT NULL,
-    ${valueKey} TEXT
+    ${valueKey} TEXT${timestamps ? `, ${createdAtKey} DATETIME DEFAULT GETDATE(), ${updatedAtKey} DATETIME` : ''}
   )`;
 };
 
-const createAttachmentsTable = (tableName: string) => {
+const createAttachmentsTable = (tableName: string, timestamps: boolean) => {
   return `CREATE TABLE "${tableName}" (
     id INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
     ${idKey} VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    ${valueKey} TEXT
+    ${valueKey} TEXT${timestamps ? `, ${createdAtKey} DATETIME DEFAULT GETDATE(), ${updatedAtKey} DATETIME` : ''}
   )`;
 };
 
@@ -90,6 +108,7 @@ export class MSSQLStorage implements IJioStorage {
   private _pool: ConnectionPool;
   private _documentsTable: string;
   private _attachmentsTable: string;
+  private _timestamps = true;
 
   /**
    * Initiate a MSSQL Storage.
@@ -110,6 +129,9 @@ export class MSSQLStorage implements IJioStorage {
       options.attachmentsTableName = defaultAttachmentsCollection;
     }
     this._attachmentsTable = options.attachmentsTableName;
+    if (options.timestamps === false) {
+      this._timestamps = false;
+    }
     this._dbPromise = this.initDb(options);
   }
 
@@ -145,8 +167,8 @@ export class MSSQLStorage implements IJioStorage {
       .push(() => promiseToQueue(pool.connect()))
       .push(async () => {
         const request = pool.request();
-        await (request.query(createDocumentsTable(this._documentsTable)).catch(() => {}));
-        await (request.query(createAttachmentsTable(this._attachmentsTable)).catch(() => {}));
+        await (request.query(createDocumentsTable(this._documentsTable, this._timestamps)).catch(() => {}));
+        await (request.query(createAttachmentsTable(this._attachmentsTable, this._timestamps)).catch(() => {}));
 
         // create indexes on id keys
         await (request.query(indexTable(this._documentsTable, [idKey])).catch(() => {}));
@@ -224,10 +246,11 @@ export class MSSQLStorage implements IJioStorage {
           );
         }
 
-        return this.executeTransaction(
-          `UPDATE ${this._documentsTable} SET ${valueKey}=@data WHERE ${idKey}=@id`,
-          {id, data: JSON.stringify(data)}
-        );
+        let update = `UPDATE ${this._documentsTable} SET ${valueKey}=@data WHERE ${idKey}=@id`;
+        if (this._timestamps) {
+          update = `UPDATE ${this._documentsTable} SET ${valueKey}=@data, ${updatedAtKey}=GETDATE() WHERE ${idKey}=@id`;
+        }
+        return this.executeTransaction(update, {id, data: JSON.stringify(data)});
       })
       .push(() => {
         return id;

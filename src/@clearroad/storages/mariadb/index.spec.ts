@@ -13,7 +13,7 @@ import storageName, {
   MariaDBStorage, IMariaDBStorageOptions,
   defaultDocumentsCollection, defaultAttachmentsCollection,
   IConnection, IPool, safeTransaction, safeQuery,
-  resultAsJson
+  resultAsJson, valueKey
 } from './index';
 
 let stubs: sinon.SinonStub[] = [];
@@ -21,6 +21,9 @@ let stubs: sinon.SinonStub[] = [];
 class FakeQueue {
   private result;
   push(callback) {
+    if (this.result instanceof FakeQueue) {
+      return this.result.push(callback);
+    }
     this.result = callback(this.result);
     return this;
   }
@@ -182,6 +185,28 @@ describe(storageName, () => {
             new MariaDBStorage(fakeOptions);
             expect((MariaDBStorage.prototype as any).initDb.called).to.equal(true);
           });
+
+          describe('with "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = true;
+            });
+
+            it('should enable timestamps', () => {
+              const storage = new MariaDBStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(true);
+            });
+          });
+
+          describe('without "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = false;
+            });
+
+            it('should disable timestamps', () => {
+              const storage = new MariaDBStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(false);
+            });
+          });
         });
       });
     });
@@ -201,10 +226,8 @@ describe(storageName, () => {
 
       beforeEach(() => {
         stubs.push(sinon.stub(specs, 'resultAsJson').callsFake(val => val));
-
         storage = new MariaDBStorage(options);
         const connection = connectionStub(storage);
-
         stub = sinon.stub(connection, 'query').returns([{}]);
         stubs.push(stub);
       });
@@ -215,6 +238,32 @@ describe(storageName, () => {
           namedPlaceholders: true,
           sql: `SELECT * FROM ${defaultDocumentsCollection} WHERE _id=:id`
         }, {id})).to.equal(true);
+      });
+
+      describe('document found', () => {
+        const document = {
+          [valueKey]: 1
+        };
+
+        beforeEach(() => {
+          stub.returns([document]);
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.deep.equal(document);
+        });
+      });
+
+      describe('document not found', () => {
+        beforeEach(() => {
+          stub.returns([]);
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.equal(null);
+        });
       });
     });
 
@@ -240,12 +289,32 @@ describe(storageName, () => {
           stubs.push(sinon.stub(storage, 'get').returns(queue));
         });
 
-        it('should update data', () => {
-          storage.put(id, data);
-          expect(stub.calledWith({
-            namedPlaceholders: true,
-            sql: `UPDATE ${defaultDocumentsCollection} SET value=:data WHERE _id=:id`
-          }, {id, data: JSON.stringify(data)})).to.equal(true);
+        describe('with timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = true;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith({
+              namedPlaceholders: true,
+              sql: `UPDATE ${defaultDocumentsCollection} SET value=:data, updatedAt=CURRENT_TIMESTAMP WHERE _id=:id`
+            }, {id, data: JSON.stringify(data)})).to.equal(true);
+          });
+        });
+
+        describe('without timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = false;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith({
+              namedPlaceholders: true,
+              sql: `UPDATE ${defaultDocumentsCollection} SET value=:data WHERE _id=:id`
+            }, {id, data: JSON.stringify(data)})).to.equal(true);
+          });
         });
       });
 
@@ -254,12 +323,32 @@ describe(storageName, () => {
           stubs.push(sinon.stub(storage, 'get').returns(new FakeQueue()));
         });
 
-        it('should insert data', () => {
-          storage.put(id, data);
-          expect(stub.calledWith(
-            `INSERT INTO ${defaultDocumentsCollection} VALUES (NULL, ?, ?)`,
-            [id, JSON.stringify(data)]
-          )).to.equal(true);
+        describe('with timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = true;
+          });
+
+          it('should insert data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith(
+              `INSERT INTO ${defaultDocumentsCollection} VALUES (NULL, ?, ?, CURRENT_TIMESTAMP, NULL)`,
+              [id, JSON.stringify(data)]
+            )).to.equal(true);
+          });
+        });
+
+        describe('without timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = false;
+          });
+
+          it('should insert data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith(
+              `INSERT INTO ${defaultDocumentsCollection} VALUES (NULL, ?, ?)`,
+              [id, JSON.stringify(data)]
+            )).to.equal(true);
+          });
         });
       });
     });
@@ -345,12 +434,32 @@ describe(storageName, () => {
         stubs.push(sinon.stub(jioImport.jIO.util, 'readBlobAsDataURL').returns(data));
       });
 
-      it('should insert data', async () => {
-        await storage.putAttachment(id, name, data);
-        expect(stub.calledWith(
-          `INSERT INTO ${defaultAttachmentsCollection} VALUES (NULL, ?, ?, ?)`,
-          [id, name, data.target.result]
-        )).to.equal(true);
+      describe('with timestamps', () => {
+        beforeEach(() => {
+          (storage as any)._timestamps = true;
+        });
+
+        it('should insert data', async () => {
+          await storage.putAttachment(id, name, data);
+          expect(stub.calledWith(
+            `INSERT INTO ${defaultAttachmentsCollection} VALUES (NULL, ?, ?, ?, CURRENT_TIMESTAMP, NULL)`,
+            [id, name, data.target.result]
+          )).to.equal(true);
+        });
+      });
+
+      describe('without timestamps', () => {
+        beforeEach(() => {
+          (storage as any)._timestamps = false;
+        });
+
+        it('should insert data', async () => {
+          await storage.putAttachment(id, name, data);
+          expect(stub.calledWith(
+            `INSERT INTO ${defaultAttachmentsCollection} VALUES (NULL, ?, ?, ?)`,
+            [id, name, data.target.result]
+          )).to.equal(true);
+        });
       });
     });
 

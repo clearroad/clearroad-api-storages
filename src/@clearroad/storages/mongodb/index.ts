@@ -17,6 +17,14 @@ export const idKey = '__id';
  * @internal
  */
 export const valueKey = 'doc';
+/**
+ * @internal
+ */
+export const createdAtKey = 'createdAt';
+/**
+ * @internal
+ */
+export const updatedAtKey = 'updatedAt';
 
 const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
   let operator: string;
@@ -103,7 +111,17 @@ export interface IMongoDBStorageOptions {
    * Collection name for attachments.
    */
   attachmentsCollectionName?: string;
+  /**
+   * Add created/updatedAt timestamps for every document.
+   * Enabled by default for both
+   */
+  timestamps?: boolean;
 }
+
+/**
+ * @internal
+ */
+export const now = () => new Date();
 
 /**
  * @internal
@@ -113,6 +131,7 @@ export class MongoDBStorage implements IJioStorage {
   private _db: Db;
   private _documentsCollection: Collection;
   private _attachmentsCollection: Collection;
+  private _timestamps = true;
 
   /**
    * Initiate a MongoDB Storage.
@@ -130,6 +149,9 @@ export class MongoDBStorage implements IJioStorage {
     }
     if (!options.attachmentsCollectionName) {
       options.attachmentsCollectionName = defaultAttachmentsCollection;
+    }
+    if (options.timestamps === false) {
+      this._timestamps = false;
     }
     this._dbPromise = this.initDb(options);
   }
@@ -185,10 +207,7 @@ export class MongoDBStorage implements IJioStorage {
         }));
       })
       .push(document => {
-        if (document) {
-          return document[valueKey];
-        }
-        return document;
+        return document ? document[valueKey] : null;
       });
   }
 
@@ -198,18 +217,25 @@ export class MongoDBStorage implements IJioStorage {
         return this.get(id);
       })
       .push((document: any): IQueue<any> => {
+        const update = {[valueKey]: data};
+
         if (!document) {
+          if (this._timestamps) {
+            update[createdAtKey] = now();
+          }
           return promiseToQueue(this._documentsCollection.insertOne({
             [idKey]: id,
-            [valueKey]: data
+            ...update
           }));
+        }
+
+        if (this._timestamps) {
+          update[updatedAtKey] = now();
         }
         return promiseToQueue(this._documentsCollection.updateOne({
           [idKey]: id
         }, {
-          $set: {
-            [valueKey]: data
-          }
+          $set: update
         }));
       })
       .push(() => id);
@@ -250,10 +276,14 @@ export class MongoDBStorage implements IJioStorage {
         return jIO.util.readBlobAsDataURL(blob);
       })
       .push(data => {
+        const update = {[valueKey]: data.target.result};
+        if (this._timestamps) {
+          update[createdAtKey] = now();
+        }
         return promiseToQueue(this._attachmentsCollection.insertOne({
           [idKey]: id,
           name,
-          [valueKey]: data.target.result
+          ...update
         }));
       });
   }

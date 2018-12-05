@@ -11,6 +11,23 @@ const mariadb = require('mariadb');
 /**
  * @internal
  */
+export const idKey = '_id';
+/**
+ * @internal
+ */
+export const valueKey = 'value';
+/**
+ * @internal
+ */
+export const createdAtKey = 'createdAt';
+/**
+ * @internal
+ */
+export const updatedAtKey = 'updatedAt';
+
+/**
+ * @internal
+ */
 export interface IConnection {
   beginTransaction: () => Promise<void>;
   commit: () => Promise<void>;
@@ -66,10 +83,12 @@ export interface IMariaDBStorageOptions {
    * Table name for attachments.
    */
   attachmentsTableName?: string;
+  /**
+   * Add created/updatedAt timestamps for every document.
+   * Enabled by default for both
+   */
+  timestamps?: boolean;
 }
-
-const idKey = '_id';
-const valueKey = 'value';
 
 interface IMariaDBDocument {
   [idKey]: string;
@@ -83,20 +102,20 @@ interface IMariaDBAttachment {
 
 const createDatabase = (databaseName: string) => `CREATE DATABASE IF NOT EXISTS \`${databaseName}\``;
 
-const createDocumentsTable = (tableName: string) => {
+const createDocumentsTable = (tableName: string, timestamps: boolean) => {
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ${idKey} VARCHAR(255) NOT NULL,
-    ${valueKey} TEXT
+    ${valueKey} TEXT${timestamps ? `, ${createdAtKey} TIMESTAMP, ${updatedAtKey} TIMESTAMP` : ''}
   )`;
 };
 
-const createAttachmentsTable = (tableName: string) => {
+const createAttachmentsTable = (tableName: string, timestamps: boolean) => {
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ${idKey} VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    ${valueKey} TEXT
+    ${valueKey} TEXT${timestamps ? `, ${createdAtKey} TIMESTAMP, ${updatedAtKey} TIMESTAMP` : ''}
   )`;
 };
 
@@ -153,6 +172,7 @@ export class MariaDBStorage implements IJioStorage {
   private _pool: IPool;
   private _documentsTable: string;
   private _attachmentsTable: string;
+  private _timestamps = true;
 
   /**
    * Initiate a MariaDB Storage.
@@ -173,6 +193,9 @@ export class MariaDBStorage implements IJioStorage {
       options.attachmentsTableName = defaultAttachmentsCollection;
     }
     this._attachmentsTable = options.attachmentsTableName;
+    if (options.timestamps === false) {
+      this._timestamps = false;
+    }
     this._dbPromise = this.initDb(options);
   }
 
@@ -203,8 +226,8 @@ export class MariaDBStorage implements IJioStorage {
       .push(connection => {
         return safeTransaction(connection, () => {
           return Promise.all([
-            connection.query(createDocumentsTable(this._documentsTable)),
-            connection.query(createAttachmentsTable(this._attachmentsTable))
+            connection.query(createDocumentsTable(this._documentsTable, this._timestamps)),
+            connection.query(createAttachmentsTable(this._attachmentsTable, this._timestamps))
           ]);
         });
       })
@@ -260,15 +283,20 @@ export class MariaDBStorage implements IJioStorage {
     return this.get(id)
       .push(document => {
         if (!document) {
-          return this.executeQuery(
-            `INSERT INTO ${this._documentsTable} VALUES (NULL, ?, ?)`,
-            [id, JSON.stringify(data)]
-          );
+          let insert = `INSERT INTO ${this._documentsTable} VALUES (NULL, ?, ?)`;
+          if (this._timestamps) {
+            insert = `INSERT INTO ${this._documentsTable} VALUES (NULL, ?, ?, CURRENT_TIMESTAMP, NULL)`;
+          }
+          return this.executeQuery(insert, [id, JSON.stringify(data)]);
         }
 
+        let update = `UPDATE ${this._documentsTable} SET ${valueKey}=:data WHERE ${idKey}=:id`;
+        if (this._timestamps) {
+          update = `UPDATE ${this._documentsTable} SET ${valueKey}=:data, ${updatedAtKey}=CURRENT_TIMESTAMP WHERE ${idKey}=:id`;
+        }
         return this.executeQuery({
           namedPlaceholders: true,
-          sql: `UPDATE ${this._documentsTable} SET ${valueKey}=:data WHERE ${idKey}=:id`
+          sql: update
         }, {id, data: JSON.stringify(data)});
       })
       .push(() => {
@@ -306,10 +334,11 @@ export class MariaDBStorage implements IJioStorage {
         return jIO.util.readBlobAsDataURL(blob);
       })
       .push(data => {
-        return this.executeQuery(
-          `INSERT INTO ${this._attachmentsTable} VALUES (NULL, ?, ?, ?)`,
-          [id, name, data.target.result]
-        );
+        let insert = `INSERT INTO ${this._attachmentsTable} VALUES (NULL, ?, ?, ?)`;
+        if (this._timestamps) {
+          insert = `INSERT INTO ${this._attachmentsTable} VALUES (NULL, ?, ?, ?, CURRENT_TIMESTAMP, NULL)`;
+        }
+        return this.executeQuery(insert, [id, name, data.target.result]);
       });
   }
 

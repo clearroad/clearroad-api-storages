@@ -13,7 +13,7 @@ import storageName, {
   MSSQLStorage, IMSSQLStorageOptions,
   defaultDocumentsCollection, defaultAttachmentsCollection,
   safeTransaction,
-  resultAsJson
+  resultAsJson, valueKey
 } from './index';
 
 let stubs: sinon.SinonStub[] = [];
@@ -21,6 +21,9 @@ let stubs: sinon.SinonStub[] = [];
 class FakeQueue {
   private result;
   push(callback) {
+    if (this.result instanceof FakeQueue) {
+      return this.result.push(callback);
+    }
     this.result = callback(this.result);
     return this;
   }
@@ -172,6 +175,28 @@ describe(storageName, () => {
             new MSSQLStorage(fakeOptions);
             expect((MSSQLStorage.prototype as any).initDb.called).to.equal(true);
           });
+
+          describe('with "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = true;
+            });
+
+            it('should enable timestamps', () => {
+              const storage = new MSSQLStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(true);
+            });
+          });
+
+          describe('without "timestamps', () => {
+            beforeEach(() => {
+              fakeOptions.timestamps = false;
+            });
+
+            it('should disable timestamps', () => {
+              const storage = new MSSQLStorage(fakeOptions);
+              expect((storage as any)._timestamps).to.equal(false);
+            });
+          });
         });
       });
     });
@@ -205,6 +230,32 @@ describe(storageName, () => {
           `SELECT * FROM ${defaultDocumentsCollection} WHERE _id=@id`
         )).to.equal(true);
       });
+
+      describe('document found', () => {
+        const document = {
+          [valueKey]: 1
+        };
+
+        beforeEach(() => {
+          stub.returns({recordset: [document]});
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.deep.equal(document);
+        });
+      });
+
+      describe('document not found', () => {
+        beforeEach(() => {
+          stub.returns({recordset: []});
+        });
+
+        it('should return the document', () => {
+          const res: any = storage.get(id);
+          expect(res.result).to.equal(null);
+        });
+      });
     });
 
     describe('.put', () => {
@@ -229,11 +280,30 @@ describe(storageName, () => {
           stubs.push(sinon.stub(storage, 'get').returns(queue));
         });
 
-        it('should update data', () => {
-          storage.put(id, data);
-          expect(stub.calledWith(
-            `UPDATE ${defaultDocumentsCollection} SET value=@data WHERE _id=@id`
-          )).to.equal(true);
+        describe('with timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = true;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith(
+              `UPDATE ${defaultDocumentsCollection} SET value=@data, updatedAt=GETDATE() WHERE _id=@id`
+            )).to.equal(true);
+          });
+        });
+
+        describe('without timestamps', () => {
+          beforeEach(() => {
+            (storage as any)._timestamps = false;
+          });
+
+          it('should update data', () => {
+            storage.put(id, data);
+            expect(stub.calledWith(
+              `UPDATE ${defaultDocumentsCollection} SET value=@data WHERE _id=@id`
+            )).to.equal(true);
+          });
         });
       });
 

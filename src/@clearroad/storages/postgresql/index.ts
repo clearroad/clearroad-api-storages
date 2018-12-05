@@ -13,6 +13,22 @@ import { Client, Pool, ClientConfig, PoolClient, QueryResult } from 'pg';
 /**
  * @internal
  */
+export const idKey = '_id';
+/**
+ * @internal
+ */
+export const valueKey = 'value';
+/**
+ * @internal
+ */
+export const createdAtKey = 'createdAt';
+/**
+ * @internal
+ */
+export const updatedAtKey = 'updatedAt';
+/**
+ * @internal
+ */
 export const defaultDocumentsCollection = 'documents';
 /**
  * @internal
@@ -33,19 +49,26 @@ export interface IPostgreSQLStorageOptions extends ClientConfig {
    * Table name for attachments.
    */
   attachmentsTableName?: string;
+  /**
+   * Add created/updatedAt timestamps for every document.
+   * Enabled by default for both
+   */
+  timestamps?: boolean;
 }
-
-const idKey = '_id';
-const valueKey = 'value';
 
 interface IPostgreSQLDocument {
   [idKey]: string;
   [valueKey]: {};
+  [createdAtKey]?: Date;
+  [updatedAtKey]?: Date;
 }
 
 interface IPostgreSQLAttachment {
   [idKey]: string;
   name: string;
+  [valueKey]: string;
+  [createdAtKey]?: Date;
+  [updatedAtKey]?: Date;
 }
 
 const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
@@ -72,20 +95,20 @@ export const parseQuery = (parsed: IJioSimpleQuery|IJioComplexQuery, key?: strin
 
 const createDatabase = (databaseName: string) => `CREATE DATABASE "${databaseName}"`;
 
-const createDocumentsTable = (tableName: string) => {
+const createDocumentsTable = (tableName: string, timestamps: boolean) => {
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
     id SERIAL PRIMARY KEY,
     ${idKey} VARCHAR(255) NOT NULL,
-    ${valueKey} jsonb
+    ${valueKey} jsonb${timestamps ? `, ${createdAtKey} TIMESTAMPTZ DEFAULT Now() , ${updatedAtKey} TIMESTAMPTZ` : ''}
   )`;
 };
 
-const createAttachmentsTable = (tableName: string) => {
+const createAttachmentsTable = (tableName: string, timestamps: boolean) => {
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
     id SERIAL PRIMARY KEY,
     ${idKey} VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    ${valueKey} TEXT
+    ${valueKey} TEXT${timestamps ? `, ${createdAtKey} TIMESTAMPTZ DEFAULT Now() , ${updatedAtKey} TIMESTAMPTZ` : ''}
   )`;
 };
 
@@ -149,6 +172,7 @@ export class PostgreSQLStorage implements IJioStorage {
   private _pool: Pool;
   private _documentsTable: string;
   private _attachmentsTable: string;
+  private _timestamps = true;
 
   /**
    * Initiate a PostgreSQL Storage.
@@ -169,6 +193,9 @@ export class PostgreSQLStorage implements IJioStorage {
       options.attachmentsTableName = defaultAttachmentsCollection;
     }
     this._attachmentsTable = options.attachmentsTableName;
+    if (options.timestamps === false) {
+      this._timestamps = false;
+    }
     this._dbPromise = this.initDb(options);
   }
 
@@ -203,8 +230,8 @@ export class PostgreSQLStorage implements IJioStorage {
       .push(client => {
         return safeTransaction(client, () => {
           return Promise.all([
-            client.query(createDocumentsTable(this._documentsTable)),
-            client.query(createAttachmentsTable(this._attachmentsTable))
+            client.query(createDocumentsTable(this._documentsTable, this._timestamps)),
+            client.query(createAttachmentsTable(this._attachmentsTable, this._timestamps))
           ]);
         });
       })
@@ -285,10 +312,11 @@ export class PostgreSQLStorage implements IJioStorage {
           );
         }
 
-        return this.executeTransaction(
-          `UPDATE ${this._documentsTable} SET ${valueKey}=$2 WHERE ${idKey}=$1`,
-          [id, JSON.stringify(data)]
-        );
+        let update = `UPDATE ${this._documentsTable} SET ${valueKey}=$2 WHERE ${idKey}=$1`;
+        if (this._timestamps) {
+          update = `UPDATE ${this._documentsTable} SET ${valueKey}=$2, ${updatedAtKey}=Now() WHERE ${idKey}=$1`;
+        }
+        return this.executeTransaction(update, [id, JSON.stringify(data)]);
       })
       .push(() => {
         return id;
