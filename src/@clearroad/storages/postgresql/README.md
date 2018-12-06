@@ -38,3 +38,16 @@ const options = {
 };
 const cr = new ClearRoad('url', 'accessToken', options);
 ```
+
+### Options
+
+Property | Type | Description | Required
+-------- | ---- | ----------- | --------
+localStorage.type | `string` | Connector type. Use `postgresql` | Yes
+localStorage.host | `string` | Database host | Yes
+localStorage.user | `string` | Database user | Yes
+localStorage.password | `string` | Database password | Yes
+localStorage.database | `string` | Database name | Yes
+localStorage.documentsTableName | `string` | Database table name to storage all documents. Default is `documents` | No
+localStorage.attachmentsTableName | `string` | Database table name to storage all attachments. Default is `attachments` | No
+localStorage.timestamps | `boolean` | Add `createdAt` and `updateAt` fields on each row. Default is `true` | No

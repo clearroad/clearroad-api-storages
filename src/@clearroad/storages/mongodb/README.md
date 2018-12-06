@@ -36,3 +36,15 @@ const options = {
 };
 const cr = new ClearRoad('url', 'accessToken', options);
 ```
+
+### Options
+
+Property | Type | Description | Required
+-------- | ---- | ----------- | --------
+localStorage.type | `string` | Connector type. Use `mongodb` | Yes
+localStorage.url | `string` | Database url connection string | Yes
+localStorage.database | `string` | Database name | Yes
+localStorage.clientOptions | `MongoClientOptions` (see [connect options](https://mongodb.github.io/node-mongodb-native/api-generated/mongoclient.html#connect)) | Additional configuration for connection | No
+localStorage.documentsCollectionName | `string` | Database collection name to storage all documents. Default is `Documents` | No
+localStorage.attachmentsCollectionName | `string` | Database table name to storage all attachments. Default is `Attachments` | No
+localStorage.timestamps | `boolean` | Add `createdAt` and `updateAt` fields on each row. Default is `true` | No
