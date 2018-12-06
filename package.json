@@ -36,7 +36,7 @@
     "@types/mssql": "^4.0.10",
     "@types/pg": "^7.4.11",
     "jio": "git+https://lab.nexedi.com/mebibou/jio.git#node",
-    "mariadb": "git+https://github.com/MariaDB/mariadb-connector-nodejs.git#develop",
+    "mariadb": "^2.0.1-beta",
     "mongodb": "^3.1.8",
     "mssql": "^4.2.3",
     "pg": "^7.6.0"
