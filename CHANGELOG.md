@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.1.0-alpha.8"></a>
+# [0.1.0-alpha.8](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.7...v0.1.0-alpha.8) (2018-12-06)
+
+
+### Features
+
+* add createdAt/updateAt on documents by default ([71cb620](https://github.com/clearroad/clearroad-api-storages/commit/71cb620))
+* **mongodb:** implement projection when querying data ([5501673](https://github.com/clearroad/clearroad-api-storages/commit/5501673))
+
+
+
 <a name="0.1.0-alpha.7"></a>
 # [0.1.0-alpha.7](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.6...v0.1.0-alpha.7) (2018-11-14)
 
