@@ -91,7 +91,7 @@ describe(storageName, () => {
         }, {
           'doc.grouping_reference': {$eq: 'data'}
         }, {
-          'doc.modification_date': {$ne: date.toJSON()}
+          [createdAtKey]: {$ne: date}
         }]
       });
     });

@@ -26,6 +26,9 @@ export const createdAtKey = 'createdAt';
  */
 export const updatedAtKey = 'updatedAt';
 
+const keyToDBField = (key: string) => key === 'modification_date' ? createdAtKey : `${valueKey}.${key}`;
+const valueToDBValue = (key: string, value: any) => key === 'modification_date' ? new Date(value) : value;
+
 const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
   let operator: string;
   switch (query.operator || '=') {
@@ -48,8 +51,8 @@ const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
       operator = '$eq';
   }
   return {
-    [`${valueKey}.${key}`]: {
-      [operator]: query.value
+    [keyToDBField(key)]: {
+      [operator]: valueToDBValue(key, query.value)
     }
   };
 };
@@ -327,7 +330,7 @@ export class MongoDBStorage implements IJioStorage {
     }
     const findOptions: FindOneOptions = {};
     if (options.sort_on) {
-      const sortOn = (options.sort_on || []).map(values => [`${valueKey}.${values[0]}`, values[1]]);
+      const sortOn = (options.sort_on || []).map(values => [keyToDBField(values[0]), values[1]]);
       // sorting on undefined field will return nothing, make sure to sort on id as well as fallback
       sortOn.push([idKey, 'descending']);
       findOptions.sort = sortOn;
@@ -338,8 +341,8 @@ export class MongoDBStorage implements IJioStorage {
     }
     const selectList = (options.select_list || []).slice();
     if (selectList.length) {
-      findOptions.projection = selectList.reduce((prev, cur) => {
-        prev[`${valueKey}.${cur}`] = 1;
+      findOptions.projection = selectList.reduce((prev, key) => {
+        prev[keyToDBField(key)] = 1;
         return prev;
       }, {[idKey]: 1});
     }

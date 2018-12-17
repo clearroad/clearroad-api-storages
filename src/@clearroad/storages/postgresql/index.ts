@@ -71,8 +71,10 @@ interface IPostgreSQLAttachment {
   [updatedAtKey]?: Date;
 }
 
+const keyToDBField = (key: string) => key === 'modification_date' ? createdAtKey : `${valueKey} ->> '${key}'`;
+
 const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
-  return `${valueKey} ->> '${key}' ${query.operator || '='} '${query.value}'`;
+  return `${keyToDBField(key)} ${query.operator || '='} '${query.value}'`;
 };
 
 const parseComplexQuery = (query: IJioComplexQuery) => {
@@ -399,7 +401,7 @@ export class PostgreSQLStorage implements IJioStorage {
     let sort = '';
     if (options.sort_on) {
       sort = ` ORDER BY ${(options.sort_on || []).map(values => {
-        return `${valueKey} ->> '${values[0]}' ${values[1] === 'ascending' ? 'ASC' : 'DESC'}`;
+        return `${keyToDBField(values[0])} ${values[1] === 'ascending' ? 'ASC' : 'DESC'}`;
       }).join(', ')}`;
     }
     // LIMIT / OFFSET

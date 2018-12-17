@@ -94,7 +94,7 @@ describe(storageName, () => {
             "OR value ->> 'portal_type' = 'Road Report Request'" +
           ') ' +
           "AND value ->> 'grouping_reference' = 'data' " +
-          `AND value ->> 'modification_date' != '${date.toJSON()}'` +
+          `AND createdAt != '${date.toJSON()}'` +
         ')'
       );
     });
