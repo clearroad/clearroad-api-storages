@@ -166,6 +166,63 @@ export const safeQuery = async <T>(client: PoolClient, query: () => Promise<Quer
   return result;
 };
 
+const requireOptionHost = (options: IPostgreSQLStorageOptions) => {
+  if (typeof options.host !== 'string' || !options.host) {
+    throw new Error('"host" must be a non-empty string');
+  }
+};
+
+const requireOptionDatabase = (options: IPostgreSQLStorageOptions) => {
+  if (typeof options.database !== 'string' || !options.database) {
+    throw new Error('"database" must be a non-empty string');
+  }
+};
+
+const requireOptionTableNames = (options: IPostgreSQLStorageOptions) => {
+  if (!options.documentsTableName) {
+    options.documentsTableName = defaultDocumentsCollection;
+  }
+  if (!options.attachmentsTableName) {
+    options.attachmentsTableName = defaultAttachmentsCollection;
+  }
+};
+
+const queryWhere = (options: IJioQueryOptions) => {
+  if (options.query) {
+    const parsed = jIO.QueryFactory.create(options.query);
+    return ` WHERE ${parseQuery(parsed)}`;
+  }
+  return '';
+};
+
+const querySort = (options: IJioQueryOptions) => {
+  if (options.sort_on) {
+    return ` ORDER BY ${(options.sort_on || []).map(values => {
+      return `${keyToDBField(values[0])} ${values[1] === 'ascending' ? 'ASC' : 'DESC'}`;
+    }).join(', ')}`;
+  }
+  return '';
+};
+
+const queryLimit = (options: IJioQueryOptions) => {
+  return options.limit ? ` LIMIT ${options.limit[1] || 100} OFFSET ${options.limit[0] || 0}` : '';
+};
+
+const queryParseDocument = (document: IPostgreSQLDocument, includeDoc: boolean, selectList: string[]) => {
+  const value: any = {
+    id: document[idKey]
+  };
+  const doc = resultAsJson(document);
+  if (includeDoc) {
+    value.doc = doc;
+  }
+  else if (selectList.length) {
+    value.value = {};
+    selectList.forEach(key => value.value[key] = doc[key]);
+  }
+  return value;
+};
+
 /**
  * @internal
  */
@@ -181,20 +238,11 @@ export class PostgreSQLStorage implements IJioStorage {
    * @param options Storage options
    */
   constructor(options: IPostgreSQLStorageOptions) {
-    if (!options.host) {
-      throw new Error('"host" must be a non-empty string');
-    }
-    if (typeof options.database !== 'string' || !options.database) {
-      throw new Error('"database" must be a non-empty string');
-    }
-    if (!options.documentsTableName) {
-      options.documentsTableName = defaultDocumentsCollection;
-    }
-    this._documentsTable = options.documentsTableName;
-    if (!options.attachmentsTableName) {
-      options.attachmentsTableName = defaultAttachmentsCollection;
-    }
-    this._attachmentsTable = options.attachmentsTableName;
+    requireOptionHost(options);
+    requireOptionDatabase(options);
+    requireOptionTableNames(options);
+    this._documentsTable = options.documentsTableName!;
+    this._attachmentsTable = options.attachmentsTableName!;
     if (options.timestamps === false) {
       this._timestamps = false;
     }
@@ -391,43 +439,14 @@ export class PostgreSQLStorage implements IJioStorage {
   }
 
   buildQuery(options: IJioQueryOptions = {query: ''}) {
-    // WHERE
-    let where = '';
-    if (options.query) {
-      const parsed = jIO.QueryFactory.create(options.query);
-      where = ` WHERE ${parseQuery(parsed)}`;
-    }
-    // ORDER BY
-    let sort = '';
-    if (options.sort_on) {
-      sort = ` ORDER BY ${(options.sort_on || []).map(values => {
-        return `${keyToDBField(values[0])} ${values[1] === 'ascending' ? 'ASC' : 'DESC'}`;
-      }).join(', ')}`;
-    }
-    // LIMIT / OFFSET
-    let limit = '';
-    if (options.limit) {
-      limit = ` LIMIT ${options.limit[1] || 100} OFFSET ${options.limit[0] || 0}`;
-    }
+    const where = queryWhere(options);
+    const sort = querySort(options);
+    const limit = queryLimit(options);
     const selectList = (options.select_list || []).slice();
+    const sql = `SELECT * FROM ${this._documentsTable}${where}${sort}${limit}`;
 
-    return this.executeQuery<IPostgreSQLDocument>(
-      `SELECT * FROM ${this._documentsTable}${where}${sort}${limit}`
-    ).push(result => {
-      return result.rows.map(document => {
-        const value: any = {
-          id: document[idKey]
-        };
-        const doc = resultAsJson(document);
-        if (options.include_docs) {
-          value.doc = doc;
-        }
-        else if (options.select_list) {
-          value.value = {};
-          selectList.forEach(key => value.value[key] = doc[key]);
-        }
-        return value;
-      });
+    return this.executeQuery<IPostgreSQLDocument>(sql).push(result => {
+      return result.rows.map(document => queryParseDocument(document, options.include_docs || false, selectList));
     });
   }
 }

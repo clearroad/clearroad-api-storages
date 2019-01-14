@@ -100,6 +100,46 @@ export const safeTransaction = async (pool: ConnectionPool, transactions: (reque
   }
 };
 
+const requireOptionServer = (options: IMSSQLStorageOptions) => {
+  if (typeof options.server !== 'string' || !options.server) {
+    throw new Error('"server" must be a non-empty string');
+  }
+};
+
+const requireOptionDatabase = (options: IMSSQLStorageOptions) => {
+  if (typeof options.database !== 'string' || !options.database) {
+    throw new Error('"database" must be a non-empty string');
+  }
+};
+
+const requireOptionTableNames = (options: IMSSQLStorageOptions) => {
+  if (!options.documentsTableName) {
+    options.documentsTableName = defaultDocumentsCollection;
+  }
+  if (!options.attachmentsTableName) {
+    options.attachmentsTableName = defaultAttachmentsCollection;
+  }
+};
+
+const queryLimit = (options: IJioQueryOptions) => {
+  return options.limit ? `OFFSET ${options.limit[0] || 0} ROWS FETCH NEXT ${options.limit[1] || 100} ROWS ONLY` : '';
+};
+
+const queryParseDocument = (document: any, includeDoc: boolean, selectList: string[]) => {
+  const value: any = {
+    id: document[idKey]
+  };
+  const doc = resultAsJson(document);
+  if (includeDoc) {
+    value.doc = doc;
+  }
+  else if (selectList.length) {
+    value.value = {};
+    selectList.forEach(key => value.value[key] = doc[key]);
+  }
+  return value;
+};
+
 /**
  * @internal
  */
@@ -115,20 +155,11 @@ export class MSSQLStorage implements IJioStorage {
    * @param options Storage options
    */
   constructor(options: IMSSQLStorageOptions) {
-    if (typeof options.server !== 'string' || !options.server) {
-      throw new Error('"server" must be a non-empty string');
-    }
-    if (typeof options.database !== 'string' || !options.database) {
-      throw new Error('"database" must be a non-empty string');
-    }
-    if (!options.documentsTableName) {
-      options.documentsTableName = defaultDocumentsCollection;
-    }
-    this._documentsTable = options.documentsTableName;
-    if (!options.attachmentsTableName) {
-      options.attachmentsTableName = defaultAttachmentsCollection;
-    }
-    this._attachmentsTable = options.attachmentsTableName;
+    requireOptionServer(options);
+    requireOptionDatabase(options);
+    requireOptionTableNames(options);
+    this._documentsTable = options.documentsTableName!;
+    this._attachmentsTable = options.attachmentsTableName!;
     if (options.timestamps === false) {
       this._timestamps = false;
     }
@@ -328,30 +359,12 @@ export class MSSQLStorage implements IJioStorage {
   }
 
   buildQuery(options: IJioQueryOptions = {query: ''}) {
-    // LIMIT / OFFSET
-    let limit = '';
-    if (options.limit) {
-      limit = `OFFSET ${options.limit[0] || 0} ROWS FETCH NEXT ${options.limit[1] || 100} ROWS ONLY`;
-    }
-    const selectList = options.select_list || [];
+    const limit = queryLimit(options);
+    const selectList = (options.select_list || []).slice();
+    const sql = `SELECT * FROM ${this._documentsTable} ${limit}`;
 
-    return this.executeQuery(
-      `SELECT * FROM ${this._documentsTable} ${limit}`
-    ).push(result => {
-      return result.recordset.map(document => {
-        const value: any = {
-          id: document[idKey]
-        };
-        const doc = resultAsJson(document);
-        if (options.include_docs) {
-          value.doc = doc;
-        }
-        else if (options.select_list) {
-          value.value = {};
-          selectList.forEach(key => value.value[key] = doc[key]);
-        }
-        return value;
-      });
+    return this.executeQuery(sql).push(result => {
+      return result.recordset.map(document => queryParseDocument(document, options.include_docs || false, selectList));
     });
   }
 }

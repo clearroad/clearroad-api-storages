@@ -29,30 +29,29 @@ export const updatedAtKey = 'updatedAt';
 const keyToDBField = (key: string) => key === 'modification_date' ? createdAtKey : `${valueKey}.${key}`;
 const valueToDBValue = (key: string, value: any) => key === 'modification_date' ? new Date(value) : value;
 
-const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
-  let operator: string;
-  switch (query.operator || '=') {
+/* tslint:disable:cyclomatic-complexity */
+const queryOperator = (operator: string) => {
+  switch (operator) {
     case '!=':
-      operator = '$ne';
-      break;
+      return '$ne';
     case '<':
-      operator = '$lt';
-      break;
+      return '$lt';
     case '<=':
-      operator = '$lte';
-      break;
+      return '$lte';
     case '>':
-      operator = '$gt';
-      break;
+      return '$gt';
     case '>=':
-      operator = '$gte';
-      break;
+      return '$gte';
     default:
-      operator = '$eq';
+      return '$eq';
   }
+};
+/* tslint:enable:cyclomatic-complexity */
+
+const parseSimpleQuery = (query: IJioSimpleQuery, key = '') => {
   return {
     [keyToDBField(key)]: {
-      [operator]: valueToDBValue(key, query.value)
+      [queryOperator(query.operator || '=')]: valueToDBValue(key, query.value)
     }
   };
 };
@@ -126,6 +125,79 @@ export interface IMongoDBStorageOptions {
  */
 export const now = () => new Date();
 
+const requireOptionUrl = (options: IMongoDBStorageOptions) => {
+  if (typeof options.url !== 'string' || !options.url) {
+    throw new Error('"url" must be a non-empty string');
+  }
+};
+
+const requireOptionDatabase = (options: IMongoDBStorageOptions) => {
+  if (typeof options.database !== 'string' || !options.database) {
+    throw new Error('"database" must be a non-empty string');
+  }
+};
+
+const requireOptionCollectionNames = (options: IMongoDBStorageOptions) => {
+  if (!options.documentsCollectionName) {
+    options.documentsCollectionName = defaultDocumentCollection;
+  }
+  if (!options.attachmentsCollectionName) {
+    options.attachmentsCollectionName = defaultAttachmentsCollection;
+  }
+};
+
+const queryParseQuery = (options: IJioQueryOptions) => {
+  if (options.query) {
+    const parsed = jIO.QueryFactory.create(options.query);
+    return parseQuery(parsed);
+  }
+  return {};
+};
+
+const querySort = (options: IJioQueryOptions) => {
+  if (options.sort_on) {
+    const sortOn = (options.sort_on || []).map(values => [keyToDBField(values[0]), values[1]]);
+    // sorting on undefined field will return nothing, make sure to sort on id as well as fallback
+    sortOn.push([idKey, 'descending']);
+    return sortOn;
+  }
+  return undefined;
+};
+
+const queryLimit = (options: IJioQueryOptions) => {
+  if (options.limit) {
+    return {
+      skip: options.limit[0] || 0,
+      limit: options.limit[1] || 100
+    };
+  }
+  return {};
+};
+
+const queryProjection = (selectList: string[]) => {
+  if (selectList.length) {
+    return selectList.reduce((prev, key) => {
+      prev[keyToDBField(key)] = 1;
+      return prev;
+    }, {[idKey]: 1});
+  }
+  return undefined;
+};
+
+const queryParseDocument = (document: any, includeDoc: boolean, selectList: string[]) => {
+  const value: any = {
+    id: document[idKey]
+  };
+  if (includeDoc) {
+    value.doc = document[valueKey];
+  }
+  else if (selectList.length) {
+    value.value = {};
+    selectList.forEach(key => value.value[key] = document[valueKey][key]);
+  }
+  return value;
+};
+
 /**
  * @internal
  */
@@ -141,18 +213,9 @@ export class MongoDBStorage implements IJioStorage {
    * @param options Storage options
    */
   constructor(options: IMongoDBStorageOptions) {
-    if (typeof options.url !== 'string' || !options.url) {
-      throw new Error('"url" must be a non-empty string');
-    }
-    if (typeof options.database !== 'string' || !options.database) {
-      throw new Error('"database" must be a non-empty string');
-    }
-    if (!options.documentsCollectionName) {
-      options.documentsCollectionName = defaultDocumentCollection;
-    }
-    if (!options.attachmentsCollectionName) {
-      options.attachmentsCollectionName = defaultAttachmentsCollection;
-    }
+    requireOptionUrl(options);
+    requireOptionDatabase(options);
+    requireOptionCollectionNames(options);
     if (options.timestamps === false) {
       this._timestamps = false;
     }
@@ -323,48 +386,19 @@ export class MongoDBStorage implements IJioStorage {
   }
 
   buildQuery(options: IJioQueryOptions = {query: ''}) {
-    let parsedQuery: any = {};
-    if (options.query) {
-      const parsed = jIO.QueryFactory.create(options.query);
-      parsedQuery = parseQuery(parsed);
-    }
+    const parsedQuery = queryParseQuery(options);
     const findOptions: FindOneOptions = {};
-    if (options.sort_on) {
-      const sortOn = (options.sort_on || []).map(values => [keyToDBField(values[0]), values[1]]);
-      // sorting on undefined field will return nothing, make sure to sort on id as well as fallback
-      sortOn.push([idKey, 'descending']);
-      findOptions.sort = sortOn;
-    }
-    if (options.limit) {
-      findOptions.skip = options.limit[0] || 0;
-      findOptions.limit = options.limit[1] || 100;
-    }
+    findOptions.sort = querySort(options);
     const selectList = (options.select_list || []).slice();
-    if (selectList.length) {
-      findOptions.projection = selectList.reduce((prev, key) => {
-        prev[keyToDBField(key)] = 1;
-        return prev;
-      }, {[idKey]: 1});
-    }
+    findOptions.projection = queryProjection(selectList);
+    const find = {...findOptions, ...queryLimit(options)};
 
     return this.db()
       .push(() => {
-        return promiseToQueue(this._documentsCollection.find(parsedQuery, findOptions).toArray());
+        return promiseToQueue(this._documentsCollection.find(parsedQuery, find).toArray());
       })
       .push(documents => {
-        return documents.map(document => {
-          const value: any = {
-            id: document[idKey]
-          };
-          if (options.include_docs) {
-            value.doc = document[valueKey];
-          }
-          else if (options.select_list) {
-            value.value = {};
-            selectList.forEach(key => value.value[key] = document[valueKey][key]);
-          }
-          return value;
-        });
+        return documents.map(document => queryParseDocument(document, options.include_docs || false, selectList));
       });
   }
 }

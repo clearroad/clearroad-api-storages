@@ -531,6 +531,8 @@ describe(storageName, () => {
         it('should set limit', () => {
           storage.buildQuery(params);
           expect(findStub.calledWith({}, {
+            projection: undefined,
+            sort: undefined,
             skip: params.limit![0],
             limit: params.limit![1]
           })).to.equal(true);
@@ -545,6 +547,7 @@ describe(storageName, () => {
         it('should set sort', () => {
           storage.buildQuery(params);
           expect(findStub.calledWith({}, {
+            projection: undefined,
             sort: [['doc.title', 'ascending'], [idKey, 'descending']]
           })).to.equal(true);
         });

@@ -164,6 +164,46 @@ export const safeQuery = async <T>(connection: IConnection, query: () => Promise
   return null;
 };
 
+const requireOptionHost = (options: IMariaDBStorageOptions) => {
+  if (typeof options.host !== 'string' || !options.host) {
+    throw new Error('"host" must be a non-empty string');
+  }
+};
+
+const requireOptionDatabase = (options: IMariaDBStorageOptions) => {
+  if (typeof options.database !== 'string' || !options.database) {
+    throw new Error('"database" must be a non-empty string');
+  }
+};
+
+const requireOptionTableNames = (options: IMariaDBStorageOptions) => {
+  if (!options.documentsTableName) {
+    options.documentsTableName = defaultDocumentsCollection;
+  }
+  if (!options.attachmentsTableName) {
+    options.attachmentsTableName = defaultAttachmentsCollection;
+  }
+};
+
+const queryLimit = (options: IJioQueryOptions) => {
+  return options.limit ? `LIMIT ${options.limit[1] || 100} OFFSET ${options.limit[0] || 0}` : '';
+};
+
+const queryParseDocument = (document: IMariaDBDocument, includeDoc: boolean, selectList: string[]) => {
+  const value: any = {
+    id: document[idKey]
+  };
+  const doc = resultAsJson(document);
+  if (includeDoc) {
+    value.doc = doc;
+  }
+  else if (selectList.length) {
+    value.value = {};
+    selectList.forEach(key => value.value[key] = doc[key]);
+  }
+  return value;
+};
+
 /**
  * @internal
  */
@@ -179,20 +219,11 @@ export class MariaDBStorage implements IJioStorage {
    * @param options Storage options
    */
   constructor(options: IMariaDBStorageOptions) {
-    if (typeof options.host !== 'string' || !options.host) {
-      throw new Error('"host" must be a non-empty string');
-    }
-    if (typeof options.database !== 'string' || !options.database) {
-      throw new Error('"database" must be a non-empty string');
-    }
-    if (!options.documentsTableName) {
-      options.documentsTableName = defaultDocumentsCollection;
-    }
-    this._documentsTable = options.documentsTableName;
-    if (!options.attachmentsTableName) {
-      options.attachmentsTableName = defaultAttachmentsCollection;
-    }
-    this._attachmentsTable = options.attachmentsTableName;
+    requireOptionHost(options);
+    requireOptionDatabase(options);
+    requireOptionTableNames(options);
+    this._documentsTable = options.documentsTableName!;
+    this._attachmentsTable = options.attachmentsTableName!;
     if (options.timestamps === false) {
       this._timestamps = false;
     }
@@ -376,31 +407,13 @@ export class MariaDBStorage implements IJioStorage {
   }
 
   buildQuery(options: IJioQueryOptions = {query: ''}) {
-    // LIMIT / OFFSET
-    let limit = '';
-    if (options.limit) {
-      limit = `LIMIT ${options.limit[1] || 100} OFFSET ${options.limit[0] || 0}`;
-    }
+    const limit = queryLimit(options);
     const selectList = (options.select_list || []).slice();
+    const sql = `SELECT * FROM ${this._documentsTable} ${limit}`;
 
-    return this.executeQuery<IMariaDBDocument[]>({
-      sql: `SELECT * FROM ${this._documentsTable} ${limit}`
-    }).push(documents => {
-      return documents ? documents.map(document => {
-        const value: any = {
-          id: document[idKey]
-        };
-        const doc = resultAsJson(document);
-        if (options.include_docs) {
-          value.doc = doc;
-        }
-        else if (options.select_list) {
-          value.value = {};
-          selectList.forEach(key => value.value[key] = doc[key]);
-        }
-        return value;
-      }) : [];
-    });
+    return this.executeQuery<IMariaDBDocument[]>({sql}).push(documents => (documents || []).map(document => {
+      return queryParseDocument(document, options.include_docs || false, selectList);
+    }));
   }
 }
 

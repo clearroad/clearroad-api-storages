@@ -7,6 +7,8 @@
     "clean": "rimraf dist .tmp",
     "build": "npm run clean && npm run build:modules",
     "build:modules": "node scripts/build/build.js",
+    "lint": "tslint \"src/**/*.ts\"",
+    "lint:fix": "tslint --fix \"src/**/*.ts\"",
     "test": "rimraf coverage && nyc mocha",
     "npmpub": "node scripts/build/publish.js",
     "npmunpub": "node scripts/build/unpublish.js",
