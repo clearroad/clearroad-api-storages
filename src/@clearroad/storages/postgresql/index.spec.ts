@@ -67,6 +67,7 @@ const clientStub = (storage: PostgreSQLStorage) => {
 describe(storageName, () => {
   beforeEach(() => {
     stubs = [];
+    stubs.push(sinon.stub(console, 'error'));
     stubs.push(sinon.stub(pg, 'Pool').returns(new FakePool()));
     stubs.push(sinon.stub(pg, 'Client').returns(new FakeClient()));
   });

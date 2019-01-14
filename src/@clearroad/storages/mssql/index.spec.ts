@@ -82,6 +82,7 @@ describe(storageName, () => {
 
   beforeEach(() => {
     stubs = [];
+    stubs.push(sinon.stub(console, 'error'));
     stubs.push(sinon.stub(mssql, 'ConnectionPool').returns(new FakePool()));
     transaction = new FakeTransaction();
     stubs.push(sinon.stub(mssql, 'Transaction').returns(transaction));

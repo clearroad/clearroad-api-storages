@@ -57,6 +57,7 @@ const options: IMongoDBStorageOptions = {
 describe(storageName, () => {
   beforeEach(() => {
     stubs = [];
+    stubs.push(sinon.stub(console, 'error'));
     stubs.push(sinon.stub(mongodb.MongoClient, 'connect').returns(new FakeMongoClient()));
   });
 

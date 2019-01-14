@@ -70,6 +70,7 @@ const connectionStub = (storage: MariaDBStorage) => {
 describe(storageName, () => {
   beforeEach(() => {
     stubs = [];
+    stubs.push(sinon.stub(console, 'error'));
     stubs.push(sinon.stub(mariadb, 'createPool').returns(new FakePool()));
     stubs.push(sinon.stub(mariadb, 'createConnection').returns(new FakeConnection()));
   });
