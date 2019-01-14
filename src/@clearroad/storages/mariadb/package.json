@@ -13,7 +13,7 @@
   ],
   "dependencies": {
     "@clearroad/api": ">= 2.4.1",
-    "mariadb": "git+https://github.com/MariaDB/mariadb-connector-nodejs.git#develop"
+    "mariadb": "^2.0.2-rc"
   },
   "bugs": {
     "url": "https://github.com/clearroad/clearroad-api-storages/issues"

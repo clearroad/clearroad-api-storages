@@ -33,14 +33,14 @@
   "homepage": "https://github.com/clearroad/clearroad-api-storages#readme",
   "dependencies": {
     "@clearroad/api": "^2.7.0",
-    "@types/mongodb": "^3.1.12",
-    "@types/mssql": "^4.0.10",
+    "@types/mongodb": "^3.1.18",
+    "@types/mssql": "^4.0.11",
     "@types/pg": "^7.4.11",
     "jio": "git+https://lab.nexedi.com/mebibou/jio.git#node",
-    "mariadb": "^2.0.1-beta",
-    "mongodb": "^3.1.8",
-    "mssql": "^4.2.3",
-    "pg": "^7.6.0"
+    "mariadb": "^2.0.2-rc",
+    "mongodb": "^3.1.10",
+    "mssql": "^4.3.0",
+    "pg": "^7.8.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^7.0.0",
