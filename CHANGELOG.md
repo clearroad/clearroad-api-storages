@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+<a name="0.1.0"></a>
+# [0.1.0](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.9...v0.1.0) (2019-01-23)
+
+
+### Bug Fixes
+
+* require version 3 of [@clearroad](https://github.com/clearroad)/api ([66c63e5](https://github.com/clearroad/clearroad-api-storages/commit/66c63e5))
+
+
+
 <a name="0.1.0-alpha.9"></a>
 # [0.1.0-alpha.9](https://github.com/clearroad/clearroad-api-storages/compare/v0.1.0-alpha.8...v0.1.0-alpha.9) (2018-12-17)
 
