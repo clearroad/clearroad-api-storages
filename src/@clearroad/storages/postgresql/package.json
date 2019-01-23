@@ -12,7 +12,7 @@
     "storage"
   ],
   "dependencies": {
-    "@clearroad/api": ">= 2.4.1",
+    "@clearroad/api": ">= 3.0.0",
     "pg": "^7.6.0"
   },
   "peerDependencies": {

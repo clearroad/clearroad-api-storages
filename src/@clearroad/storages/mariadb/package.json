@@ -12,7 +12,7 @@
     "storage"
   ],
   "dependencies": {
-    "@clearroad/api": ">= 2.4.1",
+    "@clearroad/api": ">= 3.0.0",
     "mariadb": "^2.0.2-rc"
   },
   "bugs": {
